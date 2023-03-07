@@ -38,6 +38,11 @@ FROM docker.io/library/alpine:3.17
 RUN apk add --no-cache ca-certificates libstdc++ tzdata
 RUN apk add --no-cache curl jq bind-tools
 
+WORKDIR /usr/local/bin
+RUN wget https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.11/grpc_health_probe-linux-amd64 -P /usr/local/bin/ && \
+    mv /usr/local/bin/grpc_health_probe-linux-amd64 /usr/local/bin/grpc_health_probe && \
+    chmod +x /usr/local/bin/grpc_health_probe
+
 # Setup user and group
 #
 # from the perspective of the container, uid=1000, gid=1000 is a sensible choice
@@ -66,7 +71,6 @@ COPY --from=builder /app/build/bin/erigon-cl /usr/local/bin/erigon-cl
 COPY --from=builder /app/build/bin/evm /usr/local/bin/evm
 COPY --from=builder /app/build/bin/hack /usr/local/bin/hack
 COPY --from=builder /app/build/bin/integration /usr/local/bin/integration
-COPY --from=builder /app/build/bin/lightclient /usr/local/bin/lightclient
 COPY --from=builder /app/build/bin/observer /usr/local/bin/observer
 COPY --from=builder /app/build/bin/pics /usr/local/bin/pics
 COPY --from=builder /app/build/bin/rpcdaemon /usr/local/bin/rpcdaemon
@@ -76,6 +80,8 @@ COPY --from=builder /app/build/bin/sentry /usr/local/bin/sentry
 COPY --from=builder /app/build/bin/state /usr/local/bin/state
 COPY --from=builder /app/build/bin/txpool /usr/local/bin/txpool
 COPY --from=builder /app/build/bin/verkle /usr/local/bin/verkle
+COPY --from=builder /app/build/bin/caplin-phase1 /usr/local/bin/caplin-phase1
+COPY --from=builder /app/build/bin/starter /usr/local/bin/starter
 
 
 
@@ -104,4 +110,3 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vendor="Torquem" \
       org.label-schema.version=$VERSION
 
-ENTRYPOINT ["erigon"]

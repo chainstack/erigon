@@ -45,11 +45,11 @@ type HexOrDecimal64 uint64
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (i *HexOrDecimal64) UnmarshalText(input []byte) error {
-	int, ok := ParseUint64(string(input))
+	in, ok := ParseUint64(string(input))
 	if !ok {
 		return fmt.Errorf("invalid hex or decimal integer %q", input)
 	}
-	*i = HexOrDecimal64(int)
+	*i = HexOrDecimal64(in)
 	return nil
 }
 
@@ -95,4 +95,11 @@ func RandInt64() (int64, error) {
 		return 0, err
 	}
 	return n.Int64(), nil
+}
+
+func CeilDiv(x, y int) int {
+	if y == 0 {
+		return 0
+	}
+	return (x + y - 1) / y
 }

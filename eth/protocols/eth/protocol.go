@@ -72,6 +72,9 @@ const (
 	NewPooledTransactionHashesMsg = 0x08
 	GetPooledTransactionsMsg      = 0x09
 	PooledTransactionsMsg         = 0x0a
+
+	//bsc eth67
+	UpgradeStatusMsg = 0x0b
 )
 
 var ToProto = map[uint]map[uint64]proto_sentry.MessageId{
@@ -188,6 +191,23 @@ type StatusPacket struct {
 type NewBlockHashesPacket []struct {
 	Hash   libcommon.Hash // Hash of one particular block being announced
 	Number uint64         // Number of one particular block being announced
+}
+
+// bsc eth67
+type UpgradeStatusPacket struct {
+	Extension *rlp.RawValue `rlp:"nil"`
+}
+type UpgradeStatusExtension struct {
+	DisablePeerTxBroadcast bool
+}
+
+func (e *UpgradeStatusExtension) Encode() (*rlp.RawValue, error) {
+	rawBytes, err := rlp.EncodeToBytes(e)
+	if err != nil {
+		return nil, err
+	}
+	raw := rlp.RawValue(rawBytes)
+	return &raw, nil
 }
 
 // TransactionsPacket is the network packet for broadcasting new transactions.
@@ -394,15 +414,7 @@ func (nbp *NewBlockPacket) DecodeRLP(s *rlp.Stream) error {
 
 // SanityCheck verifies that the values are reasonable, as a DoS protection
 func (request *NewBlockPacket) SanityCheck() error {
-	if err := request.Block.SanityCheck(); err != nil {
-		return err
-	}
-	//TD at mainnet block #7753254 is 76 bits. If it becomes 100 million times
-	// larger, it will still fit within 100 bits
-	if tdLen := request.TD.BitLen(); tdLen > 100 {
-		return fmt.Errorf("too large block TD: bitlen %d", tdLen)
-	}
-	return nil
+	return request.Block.SanityCheck()
 }
 
 // GetBlockBodiesPacket represents a block body query.

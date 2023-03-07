@@ -4,7 +4,6 @@
   "consensus": "parlia",
   "homesteadBlock": 0,
   "eip150Block": 0,
-  "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "eip155Block": 0,
   "byzantiumBlock": 0,
   "constantinopleBlock": 0,
@@ -19,6 +18,9 @@
   "gibbsBlock": 22800220,
   "nanoBlock": 23482428,
   "moranBlock": 23603940,
+  "planckBlock": 28196022,
+  "lubanBlock": 29295050,
+  "platoBlock": 29861024,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
