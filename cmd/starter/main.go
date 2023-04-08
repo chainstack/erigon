@@ -133,14 +133,13 @@ func main() {
 		if cmd.Process != nil {
 			if err := cmd.Process.Signal(sig); err != nil {
 				log("Error sending signal to process: %v", err)
-
 			}
 		}
 	}()
 
 	for {
 		log("Starting process %v", args[3:])
-		cmd = exec.Command(args[3], args[4:]...)
+		cmd = exec.Command(args[3], args[4:]...) //nolint:gosec
 		err := process(cmd, errSubstr, countLimit, timeWindow)
 		if err != nil {
 			switch err {
@@ -150,7 +149,6 @@ func main() {
 				continue
 			default:
 				log("Process executing error: %v", err)
-				break
 			}
 		}
 		log("Process stopped %v", args[3:])
