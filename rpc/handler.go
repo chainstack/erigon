@@ -21,14 +21,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/ledgerwatch/log/v3"
+	"github.com/sourcegraph/conc"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	jsoniter "github.com/json-iterator/go"
-	"github.com/ledgerwatch/log/v3"
 )
 
 // handler handles JSON-RPC messages. There is one handler per connection. Note that
@@ -158,53 +160,37 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage) {
 	if len(calls) == 0 {
 		return
 	}
-	// Process calls on a goroutine because they may block indefinitely:
-	h.startCallProc(func(cp *callProc) {
-		// All goroutines will place results right to this array. Because requests order must match reply orders.
+
+	h.startCallProc(func(proc *callProc) {
 		answersWithNils := make([]interface{}, len(msgs))
-		// Bounded parallelism pattern explanation https://blog.golang.org/pipelines#TOC_9.
-		boundedConcurrency := make(chan struct{}, h.maxBatchConcurrency)
-		defer close(boundedConcurrency)
-		wg := sync.WaitGroup{}
-		wg.Add(len(msgs))
-		for i := range calls {
-			boundedConcurrency <- struct{}{}
-			go func(i int) {
-				defer func() {
-					wg.Done()
-					<-boundedConcurrency
-				}()
+		ForEachIdx(runtime.GOMAXPROCS(0), msgs, func(i int, msg *jsonrpcMessage) {
+			if _, ok := <-proc.ctx.Done(); ok {
+				return
+			}
 
-				select {
-				case <-cp.ctx.Done():
-					return
-				default:
-				}
+			buf := bytes.NewBuffer(nil)
+			stream := jsoniter.NewStream(jsoniter.ConfigDefault, buf, 4096)
+			if res := h.handleCallMsg(proc, calls[i], stream); res != nil {
+				answersWithNils[i] = res
+			}
+			_ = stream.Flush()
+			if buf.Len() > 0 && answersWithNils[i] == nil {
+				answersWithNils[i] = json.RawMessage(buf.Bytes())
+			}
+		})
 
-				buf := bytes.NewBuffer(nil)
-				stream := jsoniter.NewStream(jsoniter.ConfigDefault, buf, 4096)
-				if res := h.handleCallMsg(cp, calls[i], stream); res != nil {
-					answersWithNils[i] = res
-				}
-				_ = stream.Flush()
-				if buf.Len() > 0 && answersWithNils[i] == nil {
-					answersWithNils[i] = json.RawMessage(buf.Bytes())
-				}
-			}(i)
-		}
-		wg.Wait()
 		answers := make([]interface{}, 0, len(msgs))
 		for _, answer := range answersWithNils {
 			if answer != nil {
 				answers = append(answers, answer)
 			}
 		}
-		h.addSubscriptions(cp.notifiers)
+		h.addSubscriptions(proc.notifiers)
 		if len(answers) > 0 {
-			h.conn.writeJSON(cp.ctx, answers)
+			_ = h.conn.writeJSON(proc.ctx, answers)
 		}
-		for _, n := range cp.notifiers {
-			n.activate()
+		for _, n := range proc.notifiers {
+			_ = n.activate()
 		}
 	})
 }
@@ -543,6 +529,31 @@ func writeNilIfNotPresent(stream *jsoniter.Stream) {
 	if !hasNil {
 		stream.WriteNil()
 	}
+}
+
+// ForEachIdx is the same as ForEach except it also provides the
+// index of the element to the callback.
+func ForEachIdx[T any](maxGoroutines int, input []T, f func(int, T)) {
+	numInput := len(input)
+	if maxGoroutines > numInput {
+		// No more concurrent tasks than the number of input items.
+		maxGoroutines = numInput
+	}
+
+	var idx atomic.Int64
+	// Create the task outside the loop to avoid extra closure allocations.
+	task := func() {
+		i := int(idx.Add(1) - 1)
+		for ; i < numInput; i = int(idx.Add(1) - 1) {
+			f(i, input[i])
+		}
+	}
+
+	var wg conc.WaitGroup
+	for i := 0; i < maxGoroutines; i++ {
+		wg.Go(task)
+	}
+	wg.Wait()
 }
 
 // unsubscribe is the callback function for all *_unsubscribe calls.
