@@ -1403,7 +1403,7 @@ func main() {
 	debug.RaiseFdLimit()
 	flag.Parse()
 
-	_ = logging.GetLogger("hack")
+	logging.SetupLogger("hack")
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)

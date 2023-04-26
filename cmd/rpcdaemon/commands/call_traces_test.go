@@ -75,7 +75,7 @@ func TestCallTraceOneByOne(t *testing.T) {
 		ToBlock:   (*hexutil.Uint64)(&toBlock),
 		ToAddress: []*common.Address{&toAddress1},
 	}
-	if err = api.Filter(context.Background(), traceReq1, stream); err != nil {
+	if err = api.Filter(context.Background(), traceReq1, stream, new(bool)); err != nil {
 		t.Fatalf("trace_filter failed: %v", err)
 	}
 	assert.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -119,7 +119,7 @@ func TestCallTraceUnwind(t *testing.T) {
 		ToBlock:   (*hexutil.Uint64)(&toBlock),
 		ToAddress: []*common.Address{&toAddress1},
 	}
-	if err = api.Filter(context.Background(), traceReq1, stream); err != nil {
+	if err = api.Filter(context.Background(), traceReq1, stream, new(bool)); err != nil {
 		t.Fatalf("trace_filter failed: %v", err)
 	}
 	assert.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -134,7 +134,7 @@ func TestCallTraceUnwind(t *testing.T) {
 		ToBlock:   (*hexutil.Uint64)(&toBlock),
 		ToAddress: []*common.Address{&toAddress1},
 	}
-	if err = api.Filter(context.Background(), traceReq2, stream); err != nil {
+	if err = api.Filter(context.Background(), traceReq2, stream, new(bool)); err != nil {
 		t.Fatalf("trace_filter failed: %v", err)
 	}
 	assert.Equal(t, []int{1, 2, 3, 4, 5, 11, 12}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -150,7 +150,7 @@ func TestCallTraceUnwind(t *testing.T) {
 		ToBlock:   (*hexutil.Uint64)(&toBlock),
 		ToAddress: []*common.Address{&toAddress1},
 	}
-	if err = api.Filter(context.Background(), traceReq3, stream); err != nil {
+	if err = api.Filter(context.Background(), traceReq3, stream, new(bool)); err != nil {
 		t.Fatalf("trace_filter failed: %v", err)
 	}
 	assert.Equal(t, []int{12, 13, 14, 15, 16, 17, 18, 19, 20}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -182,7 +182,7 @@ func TestFilterNoAddresses(t *testing.T) {
 		FromBlock: (*hexutil.Uint64)(&fromBlock),
 		ToBlock:   (*hexutil.Uint64)(&toBlock),
 	}
-	if err = api.Filter(context.Background(), traceReq1, stream); err != nil {
+	if err = api.Filter(context.Background(), traceReq1, stream, new(bool)); err != nil {
 		t.Fatalf("trace_filter failed: %v", err)
 	}
 	assert.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -233,7 +233,7 @@ func TestFilterAddressIntersection(t *testing.T) {
 			ToAddress:   []*common.Address{&m.Address, &toAddress2},
 			Mode:        TraceFilterModeIntersection,
 		}
-		if err = api.Filter(context.Background(), traceReq1, stream); err != nil {
+		if err = api.Filter(context.Background(), traceReq1, stream, new(bool)); err != nil {
 			t.Fatalf("trace_filter failed: %v", err)
 		}
 		assert.Equal(t, []int{6, 7, 8, 9, 10}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -249,7 +249,7 @@ func TestFilterAddressIntersection(t *testing.T) {
 			ToAddress:   []*common.Address{&toAddress1, &m.Address},
 			Mode:        TraceFilterModeIntersection,
 		}
-		if err = api.Filter(context.Background(), traceReq1, stream); err != nil {
+		if err = api.Filter(context.Background(), traceReq1, stream, new(bool)); err != nil {
 			t.Fatalf("trace_filter failed: %v", err)
 		}
 		assert.Equal(t, []int{1, 2, 3, 4, 5}, blockNumbersFromTraces(t, stream.Buffer()))
@@ -265,7 +265,7 @@ func TestFilterAddressIntersection(t *testing.T) {
 			FromAddress: []*common.Address{&toAddress2, &toAddress1, &other},
 			Mode:        TraceFilterModeIntersection,
 		}
-		if err = api.Filter(context.Background(), traceReq1, stream); err != nil {
+		if err = api.Filter(context.Background(), traceReq1, stream, new(bool)); err != nil {
 			t.Fatalf("trace_filter failed: %v", err)
 		}
 		require.Empty(t, blockNumbersFromTraces(t, stream.Buffer()))

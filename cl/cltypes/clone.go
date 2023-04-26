@@ -54,14 +54,6 @@ func (*AttesterSlashing) Clone() clonable.Clonable {
 	return &AttesterSlashing{}
 }
 
-func (*LightClientFinalityUpdate) Clone() clonable.Clonable {
-	return &LightClientFinalityUpdate{}
-}
-
-func (*LightClientOptimisticUpdate) Clone() clonable.Clonable {
-	return &LightClientOptimisticUpdate{}
-}
-
 func (*Metadata) Clone() clonable.Clonable {
 	return &Metadata{}
 }
@@ -74,14 +66,6 @@ func (*Deposit) Clone() clonable.Clonable {
 	return &Deposit{}
 }
 
-func (*LightClientBootstrap) Clone() clonable.Clonable {
-	return &LightClientBootstrap{}
-}
-
 func (*BeaconBlock) Clone() clonable.Clonable {
 	return &BeaconBlock{}
-}
-
-func (*LightClientUpdate) Clone() clonable.Clonable {
-	return &LightClientUpdate{}
 }

@@ -7,7 +7,10 @@ import (
 	"strconv"
 
 	"github.com/holiman/uint256"
+
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/common/hexutility"
+
 	"github.com/ledgerwatch/erigon/common/hexutil"
 	"github.com/ledgerwatch/erigon/core/types"
 )
@@ -24,7 +27,7 @@ func convertDataToStringP(abstractMap map[string]interface{}, field string) *str
 		result = strconv.FormatInt(v, 10)
 	case *hexutil.Big:
 		result = v.String()
-	case hexutil.Bytes:
+	case hexutility.Bytes:
 		result = v.String()
 	case hexutil.Uint:
 		result = v.String()

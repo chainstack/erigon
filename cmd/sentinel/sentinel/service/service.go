@@ -72,7 +72,9 @@ func (s *SentinelServer) SubscribeGossip(_ *sentinelrpc.EmptyMessage, stream sen
 }
 
 func (s *SentinelServer) SendRequest(_ context.Context, req *sentinelrpc.RequestData) (*sentinelrpc.ResponseData, error) {
-	retryReqInterval := time.NewTicker(20 * time.Millisecond)
+	retryReqInterval := time.NewTicker(200 * time.Millisecond)
+	defer retryReqInterval.Stop()
+	timeout := time.NewTimer(1 * time.Second)
 	defer retryReqInterval.Stop()
 	doneCh := make(chan *sentinelrpc.ResponseData)
 	// Try finding the data to our peers
@@ -108,6 +110,11 @@ func (s *SentinelServer) SendRequest(_ context.Context, req *sentinelrpc.Request
 			}()
 		case resp := <-doneCh:
 			return resp, nil
+		case <-timeout.C:
+			return &sentinelrpc.ResponseData{
+				Data:  []byte("sentinel timeout"),
+				Error: true,
+			}, nil
 		}
 	}
 }
@@ -125,9 +132,11 @@ func (s *SentinelServer) SetStatus(_ context.Context, req *sentinelrpc.Status) (
 }
 
 func (s *SentinelServer) GetPeers(_ context.Context, _ *sentinelrpc.EmptyMessage) (*sentinelrpc.PeerCount, error) {
+	nPeers, gPeers := s.sentinel.GetPeersCount()
+	log.Debug("Gossip", "peers", gPeers)
 	// Send the request and get the data if we get an answer.
 	return &sentinelrpc.PeerCount{
-		Amount: uint64(s.sentinel.GetPeersCount()),
+		Amount: uint64(nPeers),
 	}, nil
 }
 
