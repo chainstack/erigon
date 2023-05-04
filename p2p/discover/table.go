@@ -317,14 +317,16 @@ func (tab *Table) doRefresh(done chan struct{}) {
 
 func (tab *Table) loadSeedNodes() {
 	seeds := wrapNodes(tab.db.QuerySeeds(seedCount, seedMaxAge))
-	tab.log.Debug("QuerySeeds read nodes from the node DB", "count", len(seeds))
+	tab.log.Info("tab.QuerySeeds read nodes from the node DB", "count", len(seeds))
 	seeds = append(seeds, tab.nursery...)
 	for i := range seeds {
 		seed := seeds[i]
 		age := log.Lazy{Fn: func() interface{} { return time.Since(tab.db.LastPongReceived(seed.ID(), seed.IP())) }}
-		tab.log.Trace("Found seed node in database", "id", seed.ID(), "addr", seed.addr(), "age", age)
+		tab.log.Debug("Found seed node in database", "id", seed.ID(), "addr", seed.addr(), "age", age)
 		tab.addSeenNode(seed)
 	}
+	log.Debug("tab.loadSeedNodes done", "count", len(seeds))
+	log.Debug("tab.loadSeedNodes done", "seeds", fmt.Sprintf("%+v", seeds))
 }
 
 // doRevalidate checks that the last node in a random bucket is still live and replaces or
@@ -480,15 +482,18 @@ func (tab *Table) addSeenNode(n *node) {
 	b := tab.bucket(n.ID())
 	if contains(b.entries, n.ID()) {
 		// Already in bucket, don't add.
+		//	log.Debug("Node already in bucket", "id", n.ID())
 		return
 	}
 	if len(b.entries) >= bucketSize {
 		// Bucket full, maybe add as replacement.
+		//log.Debug("Bucket full, maybe add as replacement", "id", n.ID())
 		tab.addReplacement(b, n)
 		return
 	}
 	if !tab.addIP(b, n.IP()) {
 		// Can't add: IP limit reached.
+		log.Debug("Can't add: IP limit reached", "id", n.ID())
 		return
 	}
 	// Add to end of bucket:
@@ -496,6 +501,7 @@ func (tab *Table) addSeenNode(n *node) {
 	b.replacements = deleteNode(b.replacements, n)
 	n.addedAt = time.Now()
 	if tab.nodeAddedHook != nil {
+		log.Debug("nodeAddedHook", "id", n.ID())
 		tab.nodeAddedHook(n)
 	}
 }

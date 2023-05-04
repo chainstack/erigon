@@ -599,6 +599,9 @@ func (db *DB) QuerySeeds(n int, maxAge time.Duration) []*Node {
 	}); err != nil {
 		log.Warn("nodeDB.QuerySeeds failed", "err", err)
 	}
+	log.Info("nodeDB.QuerySeeds", "n", len(nodes))
+	log.Debug("nodeDB.QuerySeeds", "nodes", fmt.Sprintf("%+v", nodes))
+
 	return nodes
 }
 
