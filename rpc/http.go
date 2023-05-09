@@ -251,9 +251,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	codec := newHTTPServerConn(r, w)
 	defer codec.close()
 	var stream *jsoniter.Stream
+	fmt.Println("disableStreaming+", s.disableStreaming)
 	if !s.disableStreaming {
+		fmt.Println("disableStreaming+++", s.disableStreaming)
 		stream = jsoniter.NewStream(jsoniter.ConfigDefault, w, 4096)
 	}
+	fmt.Println("s+", stream)
 	s.serveSingleRequest(ctx, codec, stream)
 }
 
