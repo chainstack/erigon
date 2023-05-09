@@ -381,6 +381,7 @@ func (api *TraceAPIImpl) Filter(ctx context.Context, req TraceFilterRequest, str
 	}
 
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	//
 	stream.WriteArrayStart()
 	first := true
 	// Execute all transactions in picked blocks
