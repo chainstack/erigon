@@ -215,6 +215,7 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 	if ok := h.handleImmediate(msg); ok {
 		return
 	}
+	fmt.Println("handleMsg continue")
 	h.startCallProc(func(cp *callProc) {
 		needWriteStream := false
 		if stream == nil {
