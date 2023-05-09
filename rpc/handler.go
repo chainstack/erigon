@@ -211,12 +211,11 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage) {
 
 // handleMsg handles a single message.
 func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
-	fmt.Println("handleMsg here")
 	if ok := h.handleImmediate(msg); ok {
 		return
 	}
-	fmt.Println("handleMsg continue")
 	h.startCallProc(func(cp *callProc) {
+		fmt.Println("startCallProc call")
 		needWriteStream := false
 		if stream == nil {
 			stream = jsoniter.NewStream(jsoniter.ConfigDefault, nil, 4096)
