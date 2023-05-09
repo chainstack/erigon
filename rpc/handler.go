@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"strings"
@@ -391,6 +392,7 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *json
 		}
 		return nil
 	case msg.isCall():
+		spew.Dump(stream)
 		resp := h.handleCall(ctx, msg, stream)
 		if resp != nil && resp.Error != nil {
 			if resp.Error.Data != nil {
@@ -431,10 +433,8 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 	}
 	var callb *callback
 	if msg.isUnsubscribe() {
-		h.log.Info("isUnsubscribe", "ctx", "t")
 		callb = h.unsubscribeCb
 	} else if h.isMethodAllowedByGranularControl(msg.Method) {
-		h.log.Info("isMethodAllowedByGranularControl", "ctx", "t")
 		callb = h.reg.callback(msg.Method)
 	}
 	if callb == nil {
@@ -445,8 +445,6 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 		return msg.errorResponse(&InvalidParamsError{err.Error()})
 	}
 	start := time.Now()
-	h.log.Info("handler 428 handleCall", "ctx", "t", "callb is nil", callb == nil)
-	h.log.Info("handler 428 handleCall", "ctx", "t", "stream is nil", stream == nil)
 	answer := h.runMethod(cp.ctx, msg, callb, args, stream)
 
 	// Collect the statistics for RPC calls if metrics is enabled.

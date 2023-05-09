@@ -231,22 +231,6 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		}
 	}()
 	// Run the callback.
-	v := len(fullargs)
-	sv := stream == nil
-	log.Info("fa-before Call", "ctx", "t", "fargs", v)
-	for _, item := range fullargs {
-		k := item.Kind().String()
-		log.Info("each arg", "ctx", "t", "arg-kind", k)
-		if item.Kind() != reflect.Struct {
-			log.Info("each arg", "ctx", "t", "arg-not-struct-is-nil", item.IsNil())
-		} else {
-			t := reflect.TypeOf(item)
-			for i := 0; i < item.NumField(); i++ {
-				log.Info("struct fields", "ctx", "t", "field", t.Field(i).Name, "type", t.Field(i).Type)
-			}
-		}
-	}
-	log.Info("stream before call", "ctx", "t", "stream", sv)
 	results := c.fn.Call(fullargs)
 	if len(results) == 0 {
 		log.Info("call completed results is nil")
