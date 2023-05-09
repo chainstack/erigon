@@ -66,6 +66,8 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 	if name == "" {
 		return fmt.Errorf("no service name for type %s", rcvrVal.Type().String())
 	}
+	log.Info("serviceRegistry", "ctx", "t", "regname", name)
+	log.Info("serviceRegistry", "ctx", "t", "rcvr", rcvrVal.Type().String())
 	callbacks := suitableCallbacks(rcvrVal)
 	if len(callbacks) == 0 {
 		return fmt.Errorf("service %T doesn't have any suitable methods/subscriptions to expose", rcvr)
@@ -103,12 +105,12 @@ func (r *serviceRegistry) callback(method string) *callback {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	log.Info("serviceRegistry", "ctx", "t", elem[0], elem[1])
+	log.Info("serviceRegistry", "ctx", "t", "elem-0", elem[0], "elem1", elem[1])
 	if cbs, ok := r.services[elem[0]]; ok {
-		log.Info("len callbacks", "ctx", "t", len(cbs.callbacks))
+		log.Info("len callbacks", "ctx", "t", "cbs", len(cbs.callbacks))
 		if cb, ok := cbs.callbacks[elem[1]]; ok {
-			log.Info("cb exists is sub", "ctx", "t", cb.isSubscribe)
-			log.Info("cb exists is streamable", "ctx", "t", cb.streamable)
+			log.Info("cb exists is sub", "ctx", "t", "is_sub", cb.isSubscribe)
+			log.Info("cb exists is streamable", "ctx", "t", "is_stream", cb.streamable)
 			cb.rcvr.IsValid()
 		}
 	}
@@ -134,6 +136,7 @@ func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 			continue // method not exported
 		}
 		name := formatName(method.Name)
+		log.Info("new callback", "ctx", "t", "name", name)
 		cb := newCallback(receiver, method.Func, name)
 		if cb == nil {
 			continue // function invalid
@@ -234,6 +237,14 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	for _, item := range fullargs {
 		k := item.Kind().String()
 		log.Info("each arg", "ctx", "t", "arg-kind", k)
+		if item.Kind() != reflect.Struct {
+			log.Info("each arg", "ctx", "t", "arg-not-struct-is-nil", item.IsNil())
+		} else {
+			t := reflect.TypeOf(item)
+			for i := 0; i < item.NumField(); i++ {
+				log.Info("struct fields", "ctx", "t", "field", t.Field(i).Name, "type", t.Field(i).Type)
+			}
+		}
 	}
 	log.Info("stream before call", "ctx", "t", "stream", sv)
 	results := c.fn.Call(fullargs)
