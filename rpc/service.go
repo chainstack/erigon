@@ -103,6 +103,15 @@ func (r *serviceRegistry) callback(method string) *callback {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	log.Info("serviceRegistry", "ctx", "t", elem[0], elem[1])
+	if cbs, ok := r.services[elem[0]]; ok {
+		log.Info("len callbacks", "ctx", "t", len(cbs.callbacks))
+		if cb, ok := cbs.callbacks[elem[1]]; ok {
+			log.Info("cb exists is sub", "ctx", "t", cb.isSubscribe)
+			log.Info("cb exists is streamable", "ctx", "t", cb.streamable)
+			cb.rcvr.IsValid()
+		}
+	}
 	return r.services[elem[0]].callbacks[elem[1]]
 }
 
@@ -219,7 +228,7 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		}
 	}()
 	// Run the callback.
-	log.Info("fullargs before Call", "ctx", "t", len(fullargs), fullargs)
+	log.Info("fullargs before Call", "ctx", "t", len(fullargs))
 	log.Info("stream before call", "ctx", "t", stream == nil)
 	results := c.fn.Call(fullargs)
 	if len(results) == 0 {

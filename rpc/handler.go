@@ -445,7 +445,7 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 		return msg.errorResponse(&InvalidParamsError{err.Error()})
 	}
 	start := time.Now()
-	h.log.Info("handler 428 handleCall", "ctx", "t", "callb is nil", callb == nil, "args", len(args), "args-0", args[0].IsNil())
+	h.log.Info("handler 428 handleCall", "ctx", "t", "callb is nil", callb == nil)
 	h.log.Info("handler 428 handleCall", "ctx", "t", "stream is nil", stream == nil)
 	answer := h.runMethod(cp.ctx, msg, callb, args, stream)
 
