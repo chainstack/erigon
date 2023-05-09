@@ -259,7 +259,7 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		return reflect.Value{}, err
 	}
 	log.Info("check call errors completed")
-	log.Info("call completed", len(results))
+	log.Info("call completed ", len(results))
 	return results[0].Interface(), nil
 }
 
