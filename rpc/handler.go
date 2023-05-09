@@ -323,6 +323,7 @@ func (h *handler) startCallProc(fn func(*callProc)) {
 // handleImmediate executes non-call messages. It returns false if the message is a
 // call or requires a reply.
 func (h *handler) handleImmediate(msg *jsonrpcMessage) bool {
+	fmt.Println("handleImmediate")
 	start := time.Now()
 	switch {
 	case msg.isNotification():

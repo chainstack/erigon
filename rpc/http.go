@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"io"
 	"mime"
 	"net/http"
@@ -255,7 +254,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.disableStreaming {
 		stream = jsoniter.NewStream(jsoniter.ConfigDefault, w, 4096)
 	}
-	spew.Dump(stream)
 	s.serveSingleRequest(ctx, codec, stream)
 }
 
