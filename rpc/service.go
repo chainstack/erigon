@@ -228,8 +228,14 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		}
 	}()
 	// Run the callback.
-	log.Info("fullargs before Call", "ctx", "t", len(fullargs))
-	log.Info("stream before call", "ctx", "t", stream == nil)
+	v := len(fullargs)
+	sv := stream == nil
+	log.Info("fa-before Call", "ctx", "t", "fargs", v)
+	for _, item := range fullargs {
+		k := item.Kind().String()
+		log.Info("each arg", "ctx", "t", "arg-kind", k)
+	}
+	log.Info("stream before call", "ctx", "t", "stream", sv)
 	results := c.fn.Call(fullargs)
 	if len(results) == 0 {
 		log.Info("call completed results is nil")
