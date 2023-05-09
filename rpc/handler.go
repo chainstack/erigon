@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"strings"
@@ -215,12 +216,12 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 		return
 	}
 	h.startCallProc(func(cp *callProc) {
-		fmt.Println("startCallProc call")
 		needWriteStream := false
 		if stream == nil {
 			stream = jsoniter.NewStream(jsoniter.ConfigDefault, nil, 4096)
 			needWriteStream = true
 		}
+		fmt.Println("startCallProc call")
 		answer := h.handleCallMsg(cp, msg, stream)
 		h.addSubscriptions(cp.notifiers)
 		if answer != nil {
@@ -426,6 +427,7 @@ func (h *handler) isMethodAllowedByGranularControl(method string) bool {
 
 // handleCall processes method calls.
 func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter.Stream) *jsonrpcMessage {
+	spew.Dump()
 	if msg.isSubscribe() {
 		return h.handleSubscribe(cp, msg, stream)
 	}
@@ -492,6 +494,7 @@ func (h *handler) handleSubscribe(cp *callProc, msg *jsonrpcMessage, stream *jso
 
 // runMethod runs the Go callback for an RPC method.
 func (h *handler) runMethod(ctx context.Context, msg *jsonrpcMessage, callb *callback, args []reflect.Value, stream *jsoniter.Stream) *jsonrpcMessage {
+	spew.Dump("runMethod", callb, stream)
 	if !callb.streamable {
 		result, err := callb.call(ctx, msg.Method, args, stream)
 		if err != nil {
