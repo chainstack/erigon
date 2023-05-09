@@ -19,7 +19,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"io"
 	"sync/atomic"
 
@@ -121,8 +120,6 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec, stre
 	defer h.close(io.EOF, nil)
 
 	reqs, batch, err := codec.readBatch()
-	fmt.Println("serveSingleRequest")
-	spew.Dump(batch, err)
 	if err != nil {
 		if err != io.EOF {
 			codec.writeJSON(ctx, errorMessage(&invalidMessageError{"parse error"}))

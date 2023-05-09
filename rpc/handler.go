@@ -211,6 +211,7 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage) {
 
 // handleMsg handles a single message.
 func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
+	fmt.Println("handleMsg here")
 	if ok := h.handleImmediate(msg); ok {
 		return
 	}
