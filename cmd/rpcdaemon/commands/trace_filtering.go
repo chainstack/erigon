@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"math/big"
 
 	"github.com/RoaringBitmap/roaring/roaring64"
@@ -381,7 +382,7 @@ func (api *TraceAPIImpl) Filter(ctx context.Context, req TraceFilterRequest, str
 	}
 
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-	//
+	spew.Dump(stream)
 	stream.WriteArrayStart()
 	first := true
 	// Execute all transactions in picked blocks
