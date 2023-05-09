@@ -219,17 +219,21 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		}
 	}()
 	// Run the callback.
-	log.Info("fullargs before Call, %v, %v", len(fullargs), fullargs)
-	log.Info("stream before call %v", *stream)
+	log.Info("fullargs before Call", len(fullargs), fullargs)
+	log.Info("stream before call", *stream)
 	results := c.fn.Call(fullargs)
 	if len(results) == 0 {
+		log.Info("call completed results is nil")
 		return nil, nil
 	}
+	log.Info("check call errors begin")
 	if c.errPos >= 0 && !results[c.errPos].IsNil() {
 		// Method has returned non-nil error value.
 		err := results[c.errPos].Interface().(error)
 		return reflect.Value{}, err
 	}
+	log.Info("check call errors completed")
+	log.Info("call completed", len(results))
 	return results[0].Interface(), nil
 }
 
