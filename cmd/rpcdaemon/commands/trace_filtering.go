@@ -382,6 +382,7 @@ func (api *TraceAPIImpl) Filter(ctx context.Context, req TraceFilterRequest, str
 	}
 
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	fmt.Println("spew damp here")
 	spew.Dump(stream)
 	stream.WriteArrayStart()
 	first := true

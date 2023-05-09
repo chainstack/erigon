@@ -390,6 +390,7 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *json
 		}
 		return nil
 	case msg.isCall():
+		fmt.Println("spew damp handler")
 		spew.Dump(stream)
 		resp := h.handleCall(ctx, msg, stream)
 		if resp != nil && resp.Error != nil {
