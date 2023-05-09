@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"strings"
@@ -379,6 +378,7 @@ func (h *handler) handleResponse(msg *jsonrpcMessage) {
 
 // handleCallMsg executes a call message and returns the answer.
 func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *jsoniter.Stream) *jsonrpcMessage {
+	fmt.Println("+", stream)
 	start := time.Now()
 	switch {
 	case msg.isNotification():
@@ -390,8 +390,6 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *json
 		}
 		return nil
 	case msg.isCall():
-		fmt.Println("spew damp handler")
-		spew.Dump(stream)
 		resp := h.handleCall(ctx, msg, stream)
 		if resp != nil && resp.Error != nil {
 			if resp.Error.Data != nil {
