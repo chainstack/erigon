@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"strings"
@@ -214,7 +213,6 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage) {
 
 // handleMsg handles a single message.
 func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
-	fmt.Println("handleMsg 216 started")
 	if ok := h.handleImmediate(msg); ok {
 		return
 	}
@@ -224,22 +222,15 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 			stream = jsoniter.NewStream(jsoniter.ConfigDefault, nil, 4096)
 			needWriteStream = true
 		}
-		fmt.Println("handleMsg 216 startCallProc 221")
 		answer := h.handleCallMsg(cp, msg, stream)
 		h.addSubscriptions(cp.notifiers)
 		if answer != nil {
-			fmt.Println("handleMsg 216 startCallProc 221 answer 228 != nil")
-			fmt.Println("answer 228 = ", answer)
-			fmt.Println("stream before write answer 228", stream)
 			buffer, _ := json.Marshal(answer)
 			stream.Write(buffer)
 		}
 		if needWriteStream {
-			fmt.Println("handleMsg 216 startCallProc 221 needWriteStream 235")
 			h.conn.writeJSON(cp.ctx, json.RawMessage(stream.Buffer()))
 		} else {
-			fmt.Println("stream before write answer 228", stream)
-			fmt.Println("handleMsg 216 startCallProc 221 stream.Write 238")
 			stream.Write([]byte("\n"))
 		}
 		for _, n := range cp.notifiers {
@@ -391,7 +382,6 @@ func (h *handler) handleResponse(msg *jsonrpcMessage) {
 
 // handleCallMsg executes a call message and returns the answer.
 func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *jsoniter.Stream) *jsonrpcMessage {
-	fmt.Println("handleCallMsg 390 started")
 	start := time.Now()
 	switch {
 	case msg.isNotification():
@@ -403,7 +393,7 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *json
 		}
 		return nil
 	case msg.isCall():
-		fmt.Println("handleCallMsg 402 started handleCall 404")
+		fmt.Println("handleCallMsg 396")
 		resp := h.handleCall(ctx, msg, stream)
 		if resp != nil && resp.Error != nil {
 			if resp.Error.Data != nil {
@@ -439,7 +429,6 @@ func (h *handler) isMethodAllowedByGranularControl(method string) bool {
 
 // handleCall processes method calls.
 func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter.Stream) *jsonrpcMessage {
-	fmt.Println("handleCall started 439")
 	if msg.isSubscribe() {
 		return h.handleSubscribe(cp, msg, stream)
 	}
@@ -457,11 +446,7 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 		return msg.errorResponse(&InvalidParamsError{err.Error()})
 	}
 	start := time.Now()
-	fmt.Println("handleCall  456 callb")
-	spew.Dump(callb)
-	fmt.Println("handleCall 456 stream")
-	spew.Dump(stream)
-	fmt.Println("handleCall 461 answer started  462 runMethod")
+	fmt.Println("handleCall 449")
 	answer := h.runMethod(cp.ctx, msg, callb, args, stream)
 
 	// Collect the statistics for RPC calls if metrics is enabled.
@@ -511,9 +496,8 @@ func (h *handler) handleSubscribe(cp *callProc, msg *jsonrpcMessage, stream *jso
 
 // runMethod runs the Go callback for an RPC method.
 func (h *handler) runMethod(ctx context.Context, msg *jsonrpcMessage, callb *callback, args []reflect.Value, stream *jsoniter.Stream) *jsonrpcMessage {
-	fmt.Println("runMethod  510 started")
 	if !callb.streamable {
-		fmt.Println("runMethod 512 callb isn't streamable")
+		fmt.Println("runMethod 500")
 		result, err := callb.call(ctx, msg.Method, args, stream)
 		if err != nil {
 			return msg.errorResponse(err)

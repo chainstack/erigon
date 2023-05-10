@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"sync"
@@ -104,15 +103,6 @@ func (r *serviceRegistry) callback(method string) *callback {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	log.Info("serviceRegistry", "ctx", "t", "elem-0", elem[0], "elem1", elem[1])
-	if cbs, ok := r.services[elem[0]]; ok {
-		log.Info("len callbacks", "ctx", "t", "cbs", len(cbs.callbacks))
-		if cb, ok := cbs.callbacks[elem[1]]; ok {
-			log.Info("cb exists is sub", "ctx", "t", "is_sub", cb.isSubscribe)
-			log.Info("cb exists is streamable", "ctx", "t", "is_stream", cb.streamable)
-			cb.rcvr.IsValid()
-		}
-	}
 	return r.services[elem[0]].callbacks[elem[1]]
 }
 
@@ -208,7 +198,7 @@ func (c *callback) makeArgTypes() {
 
 // call invokes the callback.
 func (c *callback) call(ctx context.Context, method string, args []reflect.Value, stream *jsoniter.Stream) (res interface{}, errRes error) {
-	fmt.Println("service call 210 started")
+	fmt.Println("call 209")
 	// Create the argument slice.
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
@@ -222,9 +212,6 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		fullargs = append(fullargs, reflect.ValueOf(stream))
 	}
 
-	fmt.Println("service call 224 stream")
-	spew.Dump(stream)
-
 	// Catch panic while running the callback.
 	defer func() {
 		if err := recover(); err != nil {
@@ -235,17 +222,13 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	// Run the callback.
 	results := c.fn.Call(fullargs)
 	if len(results) == 0 {
-		log.Info("call completed results is nil")
 		return nil, nil
 	}
-	log.Info("check call errors begin")
 	if c.errPos >= 0 && !results[c.errPos].IsNil() {
 		// Method has returned non-nil error value.
 		err := results[c.errPos].Interface().(error)
 		return reflect.Value{}, err
 	}
-	log.Info("check call errors completed")
-	log.Info("call completed ", len(results))
 	return results[0].Interface(), nil
 }
 
