@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"strings"
@@ -224,9 +223,7 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 			needWriteStream = true
 		}
 		fmt.Println("before answer")
-		spew.Dump(stream)
 		answer := h.handleCallMsg(cp, msg, stream)
-		spew.Dump("after answer", stream)
 		h.addSubscriptions(cp.notifiers)
 		if answer != nil {
 			buffer, _ := json.Marshal(answer)
@@ -398,7 +395,6 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *json
 		return nil
 	case msg.isCall():
 		fmt.Println("handleCallMsg 396")
-		spew.Dump(stream)
 		resp := h.handleCall(ctx, msg, stream)
 		if resp != nil && resp.Error != nil {
 			if resp.Error.Data != nil {
