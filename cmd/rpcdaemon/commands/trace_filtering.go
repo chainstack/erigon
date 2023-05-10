@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"math/big"
 
 	"github.com/RoaringBitmap/roaring/roaring64"
@@ -339,6 +340,7 @@ func traceFilterBitmapsV3(tx kv.TemporalTx, req TraceFilterRequest, from, to uin
 // NOTE: We do not store full traces - we just store index for each address
 // Pull blocks which have txs with matching address
 func (api *TraceAPIImpl) Filter(ctx context.Context, req TraceFilterRequest, stream *jsoniter.Stream, gasBailOut *bool) error {
+	spew.Dump("TraceAPIImpl Filter", stream)
 	if gasBailOut == nil {
 		gasBailOut = new(bool) // false by default
 	}
