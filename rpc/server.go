@@ -19,6 +19,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"sync/atomic"
 
@@ -110,7 +111,7 @@ func (s *Server) ServeCodec(codec ServerCodec, options CodecOption) {
 // is used to serve HTTP connections. Subscriptions and reverse calls are not allowed in
 // this mode.
 func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec, stream *jsoniter.Stream) {
-	log.Info("serveSingleRequest", "ctx", "t", "start", "ok")
+	fmt.Println("serveSingleRequest started")
 	// Don't serve if server is stopped.
 	if atomic.LoadInt32(&s.run) == 0 {
 		return
@@ -120,17 +121,24 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec, stre
 	h.allowSubscribe = false
 	defer h.close(io.EOF, nil)
 
+	fmt.Println("serveSingleRequest newHandler", h)
+	spew.Dump(h)
+
 	reqs, batch, err := codec.readBatch()
 	if err != nil {
+		fmt.Println("serveSingleRequest readBatch with error", err)
+		spew.Dump(err)
 		if err != io.EOF {
 			codec.writeJSON(ctx, errorMessage(&invalidMessageError{"parse error"}))
 		}
 		return
 	}
 	if batch {
+		fmt.Println("serveSingleRequest batch = true")
 		if s.batchLimit > 0 && len(reqs) > s.batchLimit {
 			codec.writeJSON(ctx, errorMessage(fmt.Errorf("batch limit %d exceeded (can increase by --rpc.batch.limit). Requested batch of size: %d", s.batchLimit, len(reqs))))
 		} else {
+			fmt.Println("serveSingleRequest  handleBatch")
 			h.handleBatch(reqs)
 		}
 	} else {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"sync"
@@ -207,7 +208,7 @@ func (c *callback) makeArgTypes() {
 
 // call invokes the callback.
 func (c *callback) call(ctx context.Context, method string, args []reflect.Value, stream *jsoniter.Stream) (res interface{}, errRes error) {
-	log.Info("call", "ctx", "t", "stream", stream)
+	fmt.Println("service call 210 started")
 	// Create the argument slice.
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
@@ -220,6 +221,9 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	if c.streamable {
 		fullargs = append(fullargs, reflect.ValueOf(stream))
 	}
+
+	fmt.Println("service call 224 stream")
+	spew.Dump(stream)
 
 	// Catch panic while running the callback.
 	defer func() {
