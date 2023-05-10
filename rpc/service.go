@@ -186,8 +186,6 @@ func (c *callback) makeArgTypes() {
 	}
 	// Check if method is streamable
 	numArgs := fntype.NumIn()
-	fmt.Println("makeArgTypes")
-	fmt.Println("fntype", fntype.NumIn(), numArgs, fntype.In(numArgs-1), jsonStreamType, fntype.Name())
 	if fntype.NumIn() > firstArg && fntype.In(numArgs-1) == jsonStreamType {
 		c.streamable = true
 		numArgs--
@@ -196,6 +194,10 @@ func (c *callback) makeArgTypes() {
 	c.argTypes = make([]reflect.Type, numArgs-firstArg)
 	for i := firstArg; i < numArgs; i++ {
 		c.argTypes[i-firstArg] = fntype.In(i)
+	}
+
+	for i := 0; i < fntype.NumIn(); i++ {
+		fmt.Println(fntype.In(i))
 	}
 }
 
