@@ -398,7 +398,7 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *json
 		return nil
 	case msg.isCall():
 		fmt.Println("handleCallMsg 396")
-		spew.Dump("stream 396", stream)
+		spew.Dump(stream)
 		resp := h.handleCall(ctx, msg, stream)
 		if resp != nil && resp.Error != nil {
 			if resp.Error.Data != nil {
@@ -451,8 +451,7 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 		return msg.errorResponse(&InvalidParamsError{err.Error()})
 	}
 	start := time.Now()
-	fmt.Println("handleCall 449")
-	spew.Dump("handleCall 449", stream)
+	fmt.Println("handleCall 449", stream == nil)
 	answer := h.runMethod(cp.ctx, msg, callb, args, stream)
 
 	// Collect the statistics for RPC calls if metrics is enabled.
@@ -503,8 +502,7 @@ func (h *handler) handleSubscribe(cp *callProc, msg *jsonrpcMessage, stream *jso
 // runMethod runs the Go callback for an RPC method.
 func (h *handler) runMethod(ctx context.Context, msg *jsonrpcMessage, callb *callback, args []reflect.Value, stream *jsoniter.Stream) *jsonrpcMessage {
 	if !callb.streamable {
-		fmt.Println("runMethod 500")
-		spew.Dump("runMethod 500", stream)
+		fmt.Println("runMethod 500", stream == nil)
 		result, err := callb.call(ctx, msg.Method, args, stream)
 		if err != nil {
 			return msg.errorResponse(err)
