@@ -142,6 +142,7 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec, stre
 			h.handleBatch(reqs)
 		}
 	} else {
+		fmt.Println("serveSingleRequest batch = false")
 		h.handleMsg(reqs[0], stream)
 	}
 }

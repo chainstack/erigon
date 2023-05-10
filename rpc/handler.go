@@ -229,6 +229,8 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 		h.addSubscriptions(cp.notifiers)
 		if answer != nil {
 			fmt.Println("handleMsg 216 startCallProc 221 answer 228 != nil")
+			fmt.Println("answer 228 = ", answer)
+			fmt.Println("stream before write answer 228", stream)
 			buffer, _ := json.Marshal(answer)
 			stream.Write(buffer)
 		}
@@ -236,6 +238,7 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 			fmt.Println("handleMsg 216 startCallProc 221 needWriteStream 235")
 			h.conn.writeJSON(cp.ctx, json.RawMessage(stream.Buffer()))
 		} else {
+			fmt.Println("stream before write answer 228", stream)
 			fmt.Println("handleMsg 216 startCallProc 221 stream.Write 238")
 			stream.Write([]byte("\n"))
 		}
