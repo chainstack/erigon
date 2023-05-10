@@ -213,7 +213,6 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage) {
 // handleMsg handles a single message.
 func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 	h.log.Info("handleMsg", "ctx", "t", "start", "ok")
-	spew.Dump(stream)
 	if ok := h.handleImmediate(msg); ok {
 		return
 	}
@@ -224,7 +223,6 @@ func (h *handler) handleMsg(msg *jsonrpcMessage, stream *jsoniter.Stream) {
 			needWriteStream = true
 		}
 		h.log.Info("handleMsg", "ctx", "t", "startCallProc", "ok")
-		spew.Dump(stream)
 		answer := h.handleCallMsg(cp, msg, stream)
 		h.addSubscriptions(cp.notifiers)
 		if answer != nil {
@@ -384,7 +382,6 @@ func (h *handler) handleResponse(msg *jsonrpcMessage) {
 // handleCallMsg executes a call message and returns the answer.
 func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage, stream *jsoniter.Stream) *jsonrpcMessage {
 	h.log.Info("handleMsg", "ctx", "t", "internal", "start")
-	spew.Dump(stream)
 	start := time.Now()
 	switch {
 	case msg.isNotification():
@@ -432,7 +429,6 @@ func (h *handler) isMethodAllowedByGranularControl(method string) bool {
 // handleCall processes method calls.
 func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter.Stream) *jsonrpcMessage {
 	h.log.Info("handleCall", "ctx", "t", "start", "ok")
-	spew.Dump(stream)
 	if msg.isSubscribe() {
 		return h.handleSubscribe(cp, msg, stream)
 	}
@@ -451,9 +447,10 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 	}
 	start := time.Now()
 	h.log.Info("handleCall", "ctx", "t", "start", "ok")
-	spew.Dump(stream)
+	h.log.Info("handleCall", "ctx", "t", "stream", stream)
 	h.log.Info("handleCall", "ctx", "t", "callb", callb)
-	spew.Dump(callb)
+	spew.Dump("handleCall spew call b", callb)
+	spew.Dump("handleCall stream", stream)
 	answer := h.runMethod(cp.ctx, msg, callb, args, stream)
 
 	// Collect the statistics for RPC calls if metrics is enabled.
@@ -506,7 +503,6 @@ func (h *handler) runMethod(ctx context.Context, msg *jsonrpcMessage, callb *cal
 	h.log.Info("runMethod", "ctx", "t", "start", "ok")
 	h.log.Info("runMethod", "ctx", "t", "stream", stream)
 	h.log.Info("runMethod", "ctx", "t", "callb", callb)
-	spew.Dump("runMethod", callb, stream)
 	if !callb.streamable {
 		result, err := callb.call(ctx, msg.Method, args, stream)
 		if err != nil {

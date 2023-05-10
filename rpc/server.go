@@ -110,6 +110,7 @@ func (s *Server) ServeCodec(codec ServerCodec, options CodecOption) {
 // is used to serve HTTP connections. Subscriptions and reverse calls are not allowed in
 // this mode.
 func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec, stream *jsoniter.Stream) {
+	log.Info("serveSingleRequest", "ctx", "t", "start", "ok")
 	// Don't serve if server is stopped.
 	if atomic.LoadInt32(&s.run) == 0 {
 		return

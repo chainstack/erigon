@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"sync"
@@ -67,8 +66,6 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 	if name == "" {
 		return fmt.Errorf("no service name for type %s", rcvrVal.Type().String())
 	}
-	log.Info("serviceRegistry", "ctx", "t", "regname", name)
-	log.Info("serviceRegistry", "ctx", "t", "rcvr", rcvrVal.Type().String())
 	callbacks := suitableCallbacks(rcvrVal)
 	if len(callbacks) == 0 {
 		return fmt.Errorf("service %T doesn't have any suitable methods/subscriptions to expose", rcvr)
@@ -137,7 +134,6 @@ func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 			continue // method not exported
 		}
 		name := formatName(method.Name)
-		log.Info("new callback", "ctx", "t", "name", name)
 		cb := newCallback(receiver, method.Func, name)
 		if cb == nil {
 			continue // function invalid
@@ -211,8 +207,7 @@ func (c *callback) makeArgTypes() {
 
 // call invokes the callback.
 func (c *callback) call(ctx context.Context, method string, args []reflect.Value, stream *jsoniter.Stream) (res interface{}, errRes error) {
-	fmt.Println("call")
-	spew.Dump("stream", stream)
+	log.Info("call", "ctx", "t", "stream", stream)
 	// Create the argument slice.
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
