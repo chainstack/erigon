@@ -140,6 +140,7 @@ func newCallback(receiver, fn reflect.Value, name string) *callback {
 	fntype := fn.Type()
 	c := &callback{fn: fn, rcvr: receiver, errPos: -1, isSubscribe: isPubSub(fntype)}
 	// Determine parameter types. They must all be exported or builtin types.
+	fmt.Println("newCallback", name)
 	c.makeArgTypes()
 
 	// Verify return types. The function must return at most one error
@@ -185,6 +186,8 @@ func (c *callback) makeArgTypes() {
 	}
 	// Check if method is streamable
 	numArgs := fntype.NumIn()
+	fmt.Println("makeArgTypes")
+	fmt.Println("fntype", fntype.NumIn(), numArgs, fntype.In(numArgs-1), jsonStreamType, fntype.Name())
 	if fntype.NumIn() > firstArg && fntype.In(numArgs-1) == jsonStreamType {
 		c.streamable = true
 		numArgs--
