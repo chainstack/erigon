@@ -452,6 +452,7 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage, stream *jsoniter
 	}
 	start := time.Now()
 	fmt.Println("handleCall 449", stream == nil)
+	fmt.Println("call back streamable", callb.streamable)
 	answer := h.runMethod(cp.ctx, msg, callb, args, stream)
 
 	// Collect the statistics for RPC calls if metrics is enabled.

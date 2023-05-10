@@ -198,7 +198,6 @@ func (c *callback) makeArgTypes() {
 
 // call invokes the callback.
 func (c *callback) call(ctx context.Context, method string, args []reflect.Value, stream *jsoniter.Stream) (res interface{}, errRes error) {
-	fmt.Println("call 209", stream == nil)
 	// Create the argument slice.
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
@@ -208,6 +207,7 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		fullargs = append(fullargs, reflect.ValueOf(ctx))
 	}
 	fullargs = append(fullargs, args...)
+	fmt.Println(method, c.streamable)
 	if c.streamable {
 		fullargs = append(fullargs, reflect.ValueOf(stream))
 	}
