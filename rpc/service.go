@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"sync"
@@ -212,8 +213,9 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		fullargs = append(fullargs, reflect.ValueOf(ctx))
 	}
 	fullargs = append(fullargs, args...)
-	fmt.Println("check call")
 	fmt.Println(method, c.streamable)
+	fmt.Println("check call")
+	spew.Dump(fullargs)
 	if c.streamable {
 		fullargs = append(fullargs, reflect.ValueOf(stream))
 	}
