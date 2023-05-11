@@ -209,6 +209,17 @@ func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Co
 	}
 }
 
+func (s *Snapshot) SignRecently(validator common.Address) bool {
+	for seen, recent := range s.Recents {
+		if recent == validator {
+			if limit := uint64(len(s.Validators)/2 + 1); s.Number+1 < limit || seen > s.Number+1-limit {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, verifiedAttestations map[libcommon.Hash]struct{}, doLog bool) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
