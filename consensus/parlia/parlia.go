@@ -869,27 +869,26 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 }
 
 func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
-	    if (header.Number.Uint64()+1)%p.config.Epoch == 0 {
-		        newValidators, voteAddressMap, err := p.getCurrentValidators(header, state)
-		        if err != nil {
-			            return err
-				}
-				p.newValidators = newValidators
-				p.voteAddressMapmap = voteAddressMap
-				return nil
+	if (header.Number.Uint64()+1)%p.config.Epoch == 0 {
+		newValidators, voteAddressMap, err := p.getCurrentValidators(header, state)
+		if err != nil {
+			return err
 		}
+		p.newValidators = newValidators
+		p.voteAddressMapmap = voteAddressMap
+		return nil
+	}
 
-		if header.Number.Uint64()%p.config.Epoch != 0 {
-				return nil
-		}
-	
+	if header.Number.Uint64()%p.config.Epoch != 0 {
+		return nil
+	}
 
 	newValidators, voteAddressMap := p.newValidators, p.voteAddressMapmap
 	// sort validator by address
 	sort.Sort(validatorsAscending(newValidators))
 	var validatorsBytes []byte
 	validatorsNumber := len(newValidators)
-	
+
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLengthBeforeLuban)
 		for i, validator := range newValidators {
