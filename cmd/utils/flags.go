@@ -1540,6 +1540,7 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 	}
 	if ctx.IsSet(RPCGlobalTxFeeCapFlag.Name) {
 		cfg.RPCTxFeeCap = ctx.Float64(RPCGlobalTxFeeCapFlag.Name)
+		nodeConfig.Http.RPCTxFeeCap = cfg.RPCTxFeeCap
 	}
 	if ctx.IsSet(NoDiscoverFlag.Name) {
 		cfg.EthDiscoveryURLs = []string{}

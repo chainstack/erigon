@@ -29,6 +29,7 @@ type HttpCfg struct {
 	HttpCompression          bool
 	API                      []string
 	Gascap                   uint64
+	RPCTxFeeCap              float64
 	MaxTraces                uint64
 	WebsocketEnabled         bool
 	WebsocketCompression     bool
