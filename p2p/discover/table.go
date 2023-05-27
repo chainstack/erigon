@@ -365,9 +365,9 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 	// No reply received, pick a replacement or delete the node if there aren't
 	// any replacements.
 	if r := tab.replace(b, last); r != nil {
-		tab.log.Info("Replaced dead node", "b", bi, "id", last.ID(), "ip", last.IP(), "checks", last.livenessChecks, "r", r.ID(), "rip", r.IP())
+		tab.log.Trace("Replaced dead node", "b", bi, "id", last.ID(), "ip", last.IP(), "checks", last.livenessChecks, "r", r.ID(), "rip", r.IP())
 	} else {
-		tab.log.Info("Removed dead node", "b", bi, "id", last.ID(), "ip", last.IP(), "checks", last.livenessChecks)
+		tab.log.Trace("Removed dead node", "b", bi, "id", last.ID(), "ip", last.IP(), "checks", last.livenessChecks)
 	}
 }
 
