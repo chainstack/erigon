@@ -19,6 +19,7 @@
     "moranBlock": 22107423,
     "gibbsBlock": 23846001,
     "planckBlock": 27281024,
+    "lubanBlock": 29020050,
     "parlia": {
         "DBPath": "",
         "InMemory": false,
