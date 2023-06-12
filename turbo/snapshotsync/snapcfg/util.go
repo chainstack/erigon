@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	snapshothashesBsc "github.com/chainstack/erigon-snapshot"
 	snapshothashes "github.com/ledgerwatch/erigon-snapshot"
 	"github.com/ledgerwatch/erigon/params/networkname"
 	"github.com/pelletier/go-toml/v2"
@@ -16,7 +17,7 @@ var (
 	Mainnet    = fromToml(snapshothashes.Mainnet)
 	Sepolia    = fromToml(snapshothashes.Sepolia)
 	Goerli     = fromToml(snapshothashes.Goerli)
-	Bsc        = fromToml(snapshothashes.Bsc)
+	Bsc        = fromToml(snapshothashesBsc.Bsc)
 	Mumbai     = fromToml(snapshothashes.Mumbai)
 	BorMainnet = fromToml(snapshothashes.BorMainnet)
 	Gnosis     = fromToml(snapshothashes.Gnosis)
@@ -25,7 +26,7 @@ var (
 	MainnetHistory    = fromToml(snapshothashes.MainnetHistory)
 	SepoliaHistory    = fromToml(snapshothashes.SepoliaHistory)
 	GoerliHistory     = fromToml(snapshothashes.GoerliHistory)
-	BscHistory        = fromToml(snapshothashes.BscHistory)
+	BscHistory        = fromToml(snapshothashesBsc.BscHistory)
 	MumbaiHistory     = fromToml(snapshothashes.MumbaiHistory)
 	BorMainnetHistory = fromToml(snapshothashes.BorMainnetHistory)
 	GnosisHistory     = fromToml(snapshothashes.GnosisHistory)
