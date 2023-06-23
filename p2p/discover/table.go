@@ -55,12 +55,12 @@ const (
 	bucketIPLimit, bucketSubnet = 2, 24 // at most 2 addresses from the same /24
 	tableIPLimit, tableSubnet   = 10, 24
 
-	refreshInterval    = 30 * time.Minute
+	refreshInterval    = 10 * time.Minute
 	revalidateInterval = 5 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	seedMinTableTime   = 5 * time.Minute
-	seedCount          = 30
-	seedMaxAge         = 5 * 24 * time.Hour
+	seedCount          = 50
+	seedMaxAge         = 3 * 24 * time.Hour
 )
 
 // Table is the 'node table', a Kademlia-like index of neighbor nodes. The table keeps
@@ -255,6 +255,7 @@ loop:
 				go tab.doRefresh(refreshDone)
 			}
 		case req := <-tab.refreshReq:
+			log.Debug("refresh peers request received")
 			waiting = append(waiting, req)
 			if refreshDone == nil {
 				refreshDone = make(chan struct{})
