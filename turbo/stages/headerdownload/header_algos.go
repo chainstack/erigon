@@ -484,7 +484,7 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 	log.Debug("[downloader] Request skeleton", "anchors", len(hd.anchors), "highestInDb", hd.highestInDb)
 	var stride uint64
 	if hd.initialCycle {
-		stride = 192
+		stride = 8 * 192
 	}
 	var length uint64 = 192
 	// Include one header that we have already, to make sure the responses are not empty and do not get penalised when we are at the tip of the chain
@@ -511,6 +511,10 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 	var lastTime uint64
 	if hd.insertQueue.Len() > 0 && hd.insertQueue[0].blockHeight <= hd.highestInDb+1 {
 		link := hd.insertQueue[0]
+		if hd.stageSyncUpperBound > 0 && link.blockHeight > hd.stageSyncUpperBound {
+			log.Warn("Link Beyond the specified upper bound, will not insert")
+			return false, true, 0, lastTime, nil
+		}
 		_, bad := hd.badHeaders[link.hash]
 		if !bad && !link.persisted {
 			_, bad = hd.badHeaders[link.header.ParentHash]
@@ -526,6 +530,8 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		if !link.verified {
 			if err := hd.VerifyHeader(link.header); err != nil {
 				hd.badPoSHeaders[link.hash] = link.header.ParentHash
+				// record the bad link
+				hd.badHeaders[link.hash] = struct{}{}
 				if errors.Is(err, consensus.ErrFutureBlock) {
 					// This may become valid later
 					log.Warn("[downloader] Added future link", "hash", link.hash, "height", link.blockHeight, "timestamp", link.header.Time)
@@ -869,6 +875,10 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 		return nil, fmt.Errorf("could not find parent with hash %x and height %d for header %x %d", header.ParentHash, blockHeight-1, hash, blockHeight)
 	}
 
+	if err = db.Put(kv.Headers, dbutils.HeaderKey(blockHeight, hash), headerRaw); err != nil {
+		return nil, fmt.Errorf("[%s] failed to store header: %w", hi.logPrefix, err)
+	}
+
 	isWithFastFinality := true
 	reorgFunc := func() (bool, error) {
 		if p, ok := engine.(consensus.PoSA); ok {
@@ -879,8 +889,12 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 				}
 			}
 			if config.IsPlato(hi.highest) {
-				if justifiedNumberGot, _, err := p.GetJustifiedNumberAndHash(consensusHeaderReader, header); err == nil {
-					curJustifiedNumber = justifiedNumberGot
+				if highestHeader, err := headerReader.Header(context.Background(), db, hi.highestHash, hi.highest); highestHeader != nil {
+					if justifiedNumberGot, _, err := p.GetJustifiedNumberAndHash(consensusHeaderReader, highestHeader); err == nil {
+						curJustifiedNumber = justifiedNumberGot
+					}
+				} else {
+					log.Error("FeedHeaderPoW Get highestHeader fail", "err", err, "hi.highest", hi.highest, "hi.highestHash", hi.highestHash)
 				}
 			}
 			if justifiedNumber == curJustifiedNumber {
@@ -923,11 +937,6 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 	if err = rawdb.WriteTd(db, hash, blockHeight, td); err != nil {
 		return nil, fmt.Errorf("[%s] failed to WriteTd: %w", hi.logPrefix, err)
 	}
-
-	if err = db.Put(kv.Headers, dbutils.HeaderKey(blockHeight, hash), headerRaw); err != nil {
-		return nil, fmt.Errorf("[%s] failed to store header: %w", hi.logPrefix, err)
-	}
-
 	hi.prevHash = hash
 	return td, nil
 }
@@ -1211,6 +1220,18 @@ func (hd *HeaderDownload) RequestId() int {
 	hd.lock.RLock()
 	defer hd.lock.RUnlock()
 	return hd.requestId
+}
+
+func (hd *HeaderDownload) SetStageSyncUpperBound(stageSyncUpperBound uint64) {
+	hd.lock.Lock()
+	defer hd.lock.Unlock()
+	hd.stageSyncUpperBound = stageSyncUpperBound
+}
+
+func (hd *HeaderDownload) SetStageSyncStep(stageSyncStep uint64) {
+	hd.lock.Lock()
+	defer hd.lock.Unlock()
+	hd.stageSyncStep = stageSyncStep
 }
 
 func (hd *HeaderDownload) SetRequestId(requestId int) {

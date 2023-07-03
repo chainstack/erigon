@@ -164,4 +164,6 @@ var DefaultFlags = []cli.Flag{
 	&utils.LightClientDiscoveryTCPPortFlag,
 	&utils.SentinelAddrFlag,
 	&utils.SentinelPortFlag,
+	&utils.StageSyncUpperBoundFlag,
+	&utils.StageSyncStepFlag,
 }

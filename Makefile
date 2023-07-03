@@ -10,7 +10,7 @@ ERIGON_USER ?= erigon
 # if using volume-mounting data dir, then must exist on host OS
 DOCKER_UID ?= $(shell id -u)
 DOCKER_GID ?= $(shell id -g)
-DOCKER_TAG ?= thorax/erigon:latest
+DOCKER_TAG ?= sonicwhale/erigon:v.0.1.15
 
 # Variables below for building on host OS, and are ignored for docker
 #
@@ -62,7 +62,7 @@ validate_docker_build_args:
 
 ## docker:                            validate, update submodules and build with docker
 docker: validate_docker_build_args git-submodules
-	DOCKER_BUILDKIT=1 $(DOCKER) build -t ${DOCKER_TAG} \
+	DOCKER_BUILDKIT=1 $(DOCKER)  buildx build --platform linux/amd64 --output type=docker -t ${DOCKER_TAG} \
 		--build-arg "BUILD_DATE=$(shell date +"%Y-%m-%dT%H:%M:%S:%z")" \
 		--build-arg VCS_REF=${GIT_COMMIT} \
 		--build-arg VERSION=${GIT_TAG} \

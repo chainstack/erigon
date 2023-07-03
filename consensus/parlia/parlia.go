@@ -256,8 +256,6 @@ type Parlia struct {
 	fakeDiff               bool     // Skip difficulty verifications
 	heightForks, timeForks []uint64 // Forks extracted from the chainConfig
 	snapshots              *snapshotsync.RoSnapshots
-	newValidators          []libcommon.Address
-	voteAddressMapmap      map[libcommon.Address]*types.BLSPublicKey
 }
 
 // New creates a Parlia consensus engine.
@@ -407,6 +405,22 @@ func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Confi
 	return &attestation, nil
 }
 
+// getParent returns the parent of a given block.
+func (p *Parlia) getParent(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) (*types.Header, error) {
+	var parent *types.Header
+	number := header.Number.Uint64()
+	if len(parents) > 0 {
+		parent = parents[len(parents)-1]
+	} else {
+		parent = chain.GetHeader(header.ParentHash, number-1)
+	}
+
+	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+		return nil, consensus.ErrUnknownAncestor
+	}
+	return parent, nil
+}
+
 // verifyVoteAttestation checks whether the vote attestation in the header is valid.
 func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
 	attestation, err := getVoteAttestationFromHeader(header, p.chainConfig, p.config)
@@ -424,15 +438,9 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	}
 
 	// Get parent block
-	number := header.Number.Uint64()
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
-	}
-	if parent == nil || parent.Hash() != header.ParentHash {
-		return consensus.ErrUnknownAncestor
+	parent, err := p.getParent(chain, header, parents)
+	if err != nil {
+		return err
 	}
 
 	// The target block should be direct parent.
@@ -556,6 +564,22 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 		return consensus.ErrUnexpectedWithdrawals
 	}
 
+	parent, err := p.getParent(chain, header, parents)
+	if err != nil {
+		return err
+	}
+
+	// Verify the block's gas usage and (if applicable) verify the base fee.
+	if !chain.Config().IsLondon(header.Number.Uint64()) {
+		// Verify BaseFee not present before EIP-1559 fork.
+		if header.BaseFee != nil {
+			return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
+		}
+	} else if err := misc.VerifyEip1559Header(chain.Config(), parent, header); err != nil {
+		// Verify the header's EIP-1559 attributes.
+		return err
+	}
+
 	// All basic checks passed, verify cascading fields
 	return p.verifyCascadingFields(chain, header, parents)
 }
@@ -571,15 +595,9 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 		return nil
 	}
 
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
-	}
-
-	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
-		return consensus.ErrUnknownAncestor
+	parent, err := p.getParent(chain, header, parents)
+	if err != nil {
+		return err
 	}
 
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
@@ -869,21 +887,15 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 }
 
 func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
-	if (header.Number.Uint64()+1)%p.config.Epoch == 0 {
-		newValidators, voteAddressMap, err := p.getCurrentValidators(header, state)
-		if err != nil {
-			return err
-		}
-		p.newValidators = newValidators
-		p.voteAddressMapmap = voteAddressMap
+	if (header.Number.Uint64())%p.config.Epoch != 0 {
 		return nil
 	}
 
-	if header.Number.Uint64()%p.config.Epoch != 0 {
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state)
+	if err != nil {
 		return nil
 	}
 
-	newValidators, voteAddressMap := p.newValidators, p.voteAddressMapmap
 	// sort validator by address
 	sort.Sort(validatorsAscending(newValidators))
 	var validatorsBytes []byte
@@ -896,6 +908,7 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 		}
 	} else {
 		if uint8(validatorsNumber) != header.Extra[extraVanity] {
+			log.Error("verifyValidators failed", "len(validatorsNumber)", validatorsNumber, "header.Extra[extraVanity]", header.Extra[extraVanity])
 			return errMismatchingEpochValidators
 		}
 		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLength)
@@ -1348,7 +1361,8 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	}
 	// call
 	msgData := hexutility.Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
+	ibsWithoutCache := state.New(ibs.StateReader)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibsWithoutCache, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}

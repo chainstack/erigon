@@ -252,6 +252,9 @@ type Config struct {
 	OverrideShanghaiTime *big.Int `toml:",omitempty"`
 
 	DropUselessPeers bool
+
+	StageSyncUpperBound uint64
+	StageSyncStep       uint64
 }
 
 type Sync struct {

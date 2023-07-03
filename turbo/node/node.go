@@ -65,7 +65,7 @@ func NewNodConfigUrfave(ctx *cli.Context) *nodecfg.Config {
 	case networkname.ChapelChainName:
 		log.Info("Starting Erigon on Chapel testnet...")
 	case networkname.RialtoChainName:
-		log.Info("Starting Erigon on Chapel testnet...")
+		log.Info("Starting Erigon on Rialto testnet...")
 	case networkname.DevChainName:
 		log.Info("Starting Erigon in ephemeral dev mode...")
 	case networkname.MumbaiChainName:

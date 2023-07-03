@@ -48,10 +48,12 @@ type HeadersCfg struct {
 	noP2PDiscovery    bool
 	tmpdir            string
 
-	snapshots     *snapshotsync.RoSnapshots
-	blockReader   services.FullBlockReader
-	forkValidator *engineapi.ForkValidator
-	notifications *shards.Notifications
+	snapshots           *snapshotsync.RoSnapshots
+	blockReader         services.FullBlockReader
+	forkValidator       *engineapi.ForkValidator
+	notifications       *shards.Notifications
+	StageSyncUpperBound uint64
+	StageSyncStep       uint64
 }
 
 func StageHeadersCfg(
@@ -68,22 +70,25 @@ func StageHeadersCfg(
 	blockReader services.FullBlockReader,
 	tmpdir string,
 	notifications *shards.Notifications,
-	forkValidator *engineapi.ForkValidator) HeadersCfg {
+	forkValidator *engineapi.ForkValidator,
+	StageSyncUpperBound, StageSyncStep uint64) HeadersCfg {
 	return HeadersCfg{
-		db:                db,
-		hd:                headerDownload,
-		bodyDownload:      bodyDownload,
-		chainConfig:       chainConfig,
-		headerReqSend:     headerReqSend,
-		announceNewHashes: announceNewHashes,
-		penalize:          penalize,
-		batchSize:         batchSize,
-		tmpdir:            tmpdir,
-		noP2PDiscovery:    noP2PDiscovery,
-		snapshots:         snapshots,
-		blockReader:       blockReader,
-		forkValidator:     forkValidator,
-		notifications:     notifications,
+		db:                  db,
+		hd:                  headerDownload,
+		bodyDownload:        bodyDownload,
+		chainConfig:         chainConfig,
+		headerReqSend:       headerReqSend,
+		announceNewHashes:   announceNewHashes,
+		penalize:            penalize,
+		batchSize:           batchSize,
+		tmpdir:              tmpdir,
+		noP2PDiscovery:      noP2PDiscovery,
+		snapshots:           snapshots,
+		blockReader:         blockReader,
+		forkValidator:       forkValidator,
+		notifications:       notifications,
+		StageSyncUpperBound: StageSyncUpperBound,
+		StageSyncStep:       StageSyncStep,
 	}
 }
 
@@ -104,6 +109,11 @@ func SpawnStageHeaders(
 			return err
 		}
 		defer tx.Rollback()
+	}
+	if initialCycle {
+		// Set sync upperbound only at the initalCycle to avoid repeated set.
+		cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
+		cfg.hd.SetStageSyncStep(cfg.StageSyncStep)
 	}
 	if initialCycle && cfg.snapshots != nil && cfg.snapshots.Cfg().Enabled {
 		if err := cfg.hd.AddHeadersFromSnapshot(tx, cfg.snapshots.BlocksAvailable(), cfg.blockReader); err != nil {
@@ -887,6 +897,11 @@ Loop:
 			stopped = true
 		case <-logEvery.C:
 			progress := cfg.hd.Progress()
+			if cfg.StageSyncUpperBound > 0 && progress > cfg.StageSyncUpperBound {
+				stopped = true
+				log.Warn("Stage progress is over StageSyncUpperBound and stop the stage sync here")
+				return nil
+			}
 			logProgressHeaders(logPrefix, prevProgress, progress)
 			stats := cfg.hd.ExtractStats()
 			if prevProgress == progress {
