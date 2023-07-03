@@ -299,4 +299,5 @@ replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2
 	github.com/ledgerwatch/erigon-lib => github.com/chainstack/erigon-lib v0.0.0-20230628134336-39ccc77d2011
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.15
+	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230629111255-a1366bf5ee0e
 )
