@@ -10,7 +10,7 @@ ERIGON_USER ?= erigon
 # if using volume-mounting data dir, then must exist on host OS
 DOCKER_UID ?= $(shell id -u)
 DOCKER_GID ?= $(shell id -g)
-DOCKER_TAG ?= sonicwhale/erigon:v.0.1.15
+DOCKER_TAG ?= thorax/erigon:latest
 
 # Variables below for building on host OS, and are ignored for docker
 #
