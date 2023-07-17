@@ -82,6 +82,7 @@ coverage.out
 
 dist
 __debug_bin
+cmd/erigon/Users/
 
 *.log
 

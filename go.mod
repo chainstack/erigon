@@ -269,5 +269,6 @@ require (
 )
 
 replace github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.12
+replace github.com/ledgerwatch/erigon-snapshot => github.com/chainstack/erigon-snapshot v1.2.1
 
 replace github.com/VictoriaMetrics/metrics => github.com/greyireland/metrics v0.0.5
