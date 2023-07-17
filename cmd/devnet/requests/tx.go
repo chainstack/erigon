@@ -28,7 +28,7 @@ func TxpoolContent(reqId int) (int, int, int, error) {
 
 	if resp["pending"] != nil {
 		pending = resp["pending"].(map[string]interface{})
-		for _, txs := range pending { // iterate over senders
+		for _, txs := range queued {
 			pendingLen += len(txs.(map[string]interface{}))
 		}
 	}
