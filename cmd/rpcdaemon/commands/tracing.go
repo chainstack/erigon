@@ -3,23 +3,27 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/ledgerwatch/log/v3"
 	"math/big"
 	"time"
 
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"
+	chain2 "github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/log/v3"
-
-	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
-
+	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/common/hexutil"
 	"github.com/ledgerwatch/erigon/common/math"
+	"github.com/ledgerwatch/erigon/consensus"
+	"github.com/ledgerwatch/erigon/consensus/misc"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/state"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
+	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
+	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"github.com/ledgerwatch/erigon/eth/tracers"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
@@ -523,4 +527,166 @@ func (api *PrivateDebugAPIImpl) TraceCallMany(ctx context.Context, bundles []Bun
 func newBoolPtr(bb bool) *bool {
 	b := bb
 	return &b
+}
+
+// TraceBlockDiffByHash implements debug_traceBlockDiffByHash. Returns Geth style block diff layer.
+func (api *PrivateDebugAPIImpl) TraceBlockDiffByHash(ctx context.Context, hash common.Hash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithHash(hash, true), config, stream)
+}
+
+// TraceBlockDiffByNumber implements debug_traceBlockDiffByNumber. Returns Geth style block diff layer.
+func (api *PrivateDebugAPIImpl) TraceBlockDiffByNumber(ctx context.Context, blockNum rpc.BlockNumber, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithNumber(blockNum), config, stream)
+}
+
+func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	roTx, err := api.db.BeginRo(ctx)
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+	defer roTx.Rollback()
+	noOpWriter := state.NewNoopWriter()
+	var (
+		b        *types.Block
+		number   rpc.BlockNumber
+		numberOk bool
+		hash     common.Hash
+		hashOk   bool
+	)
+	if number, numberOk = blockNrOrHash.Number(); numberOk {
+		b, err = api.blockByRPCNumber(number, roTx)
+	} else if hash, hashOk = blockNrOrHash.Hash(); hashOk {
+		b, err = api.blockByHashWithSenders(roTx, hash)
+	} else {
+		return fmt.Errorf("invalid arguments; neither block nor hash specified")
+	}
+
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+
+	if b == nil {
+		if numberOk {
+			return fmt.Errorf("invalid arguments; block with number %d not found", number)
+		}
+		return fmt.Errorf("invalid arguments; block with hash %x not found", hash)
+	}
+
+	// if we've pruned this history away for this block then just return early
+	// to save any red herring errors
+	err = api.BaseAPI.checkPruneHistory(roTx, b.NumberU64())
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+
+	if config == nil {
+		config = &tracers.TraceConfig{}
+	}
+
+	if config.BorTraceEnabled == nil {
+		config.BorTraceEnabled = newBoolPtr(false)
+	}
+
+	chainConfig, err := api.chainConfig(roTx)
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+	engine := api.engine()
+	// do not use state.NewPlainState, use this method, will cause different code in BSC: Cross Chain contract at 4369997
+	//reader := state.NewPlainState(roTx, b.NumberU64(), nil)
+	reader, err := rpchelper.CreateHistoryStateReader(roTx, b.NumberU64(), 0, api.historyV3(roTx), chainConfig.ChainName)
+	if err != nil {
+		return err
+	}
+
+	// Create the parent state database
+	intraBlockState := state.New(reader)
+	blockWriter := NewDiffLayerWriter()
+	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		h, e := api._blockReader.Header(ctx, roTx, hash, number)
+		if e != nil {
+			panic(e)
+		}
+		return h
+	}
+	_, err1 := api.runBlockDiff(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
+	if err1 != nil {
+		panic(fmt.Errorf("run block failed: %v, numer: %v", err1, b.NumberU64()))
+	}
+	//if chainConfig.IsByzantium(b.NumberU64()) {
+	//	receiptSha := types.DeriveSha(receipts)
+	//	if receiptSha != b.ReceiptHash() {
+	//		panic(fmt.Errorf("mismatched receipt headers for block: %v", b.NumberU64()))
+	//	}
+	//}
+
+	stream.WriteObjectStart()
+	stream.WriteObjectField("diff_rlp")
+	dataLen, err := stream.Write(blockWriter.GetData())
+	if err != nil {
+		log.Info("stream writ data", "data", blockWriter.GetData(), "wlen", dataLen, "err", err.Error())
+		return err
+	}
+
+	stream.WriteObjectEnd()
+	stream.Flush()
+	return nil
+}
+
+func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine, ibs *state.IntraBlockState, txnWriter state.StateWriter, blockWriter state.StateWriter,
+	chainConfig *chain2.Config, getHeader func(hash common.Hash, number uint64) *types.Header, block *types.Block, vmConfig vm.Config, trace bool) (types.Receipts, error) {
+	header := block.Header()
+	excessDataGas := header.ParentExcessDataGas(getHeader)
+	vmConfig.TraceJumpDest = true
+	gp := new(core.GasPool).AddGas(block.GasLimit())
+	usedGas := new(uint64)
+	var receipts types.Receipts
+	if chainConfig.DAOForkBlock != nil && chainConfig.DAOForkBlock.Cmp(block.Number()) == 0 {
+		misc.ApplyDAOHardFork(ibs)
+	}
+	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
+	rules := chainConfig.Rules(block.NumberU64(), block.Time())
+	posa, okPosa := engine.(consensus.PoSA)
+	//balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
+	for i, tx := range block.Transactions() {
+		if okPosa {
+			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
+				return nil, err
+			} else if isSystemTx {
+				continue
+			}
+		}
+		ibs.Prepare(tx.Hash(), block.Hash(), i)
+		//gasUsedTmp1 := uint256.NewInt(*usedGas)
+		//log.Info("ApplyTransaction txHash", "hash", tx.Hash().Hex())
+		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, tx, usedGas, vmConfig, excessDataGas)
+		if err != nil {
+			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
+		}
+		//gasUsedTmp2 := uint256.NewInt(*usedGas)
+		//log.Info("ApplyTransaction ret", "txIndex", i, "usedGas", gasUsedTmp2.Sub(gasUsedTmp2, gasUsedTmp1).Hex(), "systemAddr Balance",
+		//	ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), &balanceDiff).Hex())
+		//balanceDiff = *ibs.GetBalance(consensus.SystemAddress)
+		if trace {
+			log.Info("tx idx %d, gas used %d", i, receipt.GasUsed)
+		}
+		receipts = append(receipts, receipt)
+	}
+
+	if !vmConfig.ReadOnly {
+		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+		tx := block.Transactions()
+		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
+			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
+		}
+		if err := ibs.CommitBlock(rules, blockWriter); err != nil {
+			return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
+		}
+	}
+
+	return receipts, nil
 }

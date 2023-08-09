@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/length"
@@ -23,6 +23,7 @@ import (
 	"github.com/willf/bitset"
 
 	"github.com/ledgerwatch/erigon/core/rawdb"
+	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto/cryptopool"
 
@@ -38,7 +39,6 @@ import (
 	"github.com/ledgerwatch/erigon/consensus/misc"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/forkid"
-	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/crypto"
@@ -246,8 +246,6 @@ type Parlia struct {
 
 	signerLock sync.RWMutex // Protects the signer fields
 
-	snapLock sync.RWMutex // Protects snapshots creation
-
 	validatorSetABIBeforeLuban abi.ABI
 	validatorSetABI            abi.ABI
 	slashABI                   abi.ABI
@@ -437,7 +435,6 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 		return fmt.Errorf("invalid attestation, too large extra length: %d", len(attestation.Extra))
 	}
 
-	// Get parent block
 	parent, err := p.getParent(chain, header, parents)
 	if err != nil {
 		return err
@@ -633,11 +630,11 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 
 	// Verify vote attestation for fast finality.
 	if err := p.verifyVoteAttestation(chain, header, parents); err != nil {
+		log.Warn("Verify vote attestation failed", "error", err, "hash", header.Hash(), "number", header.Number,
+			"parent", header.ParentHash, "coinbase", header.Coinbase, "extra", common.Bytes2Hex(header.Extra))
 		if chain.Config().IsPlato(header.Number.Uint64()) {
 			return err
 		}
-		log.Warn("Verify vote attestation failed", "error", err, "hash", header.Hash(), "number", header.Number,
-			"parent", header.ParentHash, "coinbase", header.Coinbase, "extra", common.Bytes2Hex(header.Extra))
 	}
 
 	// All basic checks passed, verify the seal and return
@@ -674,7 +671,7 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 		return fmt.Errorf("parlia.verifySeal: headerNum=%d, validator=%x, %w", header.Number.Uint64(), signer.Bytes(), errUnauthorizedValidator)
 	}
 
-	if snap.SignRecently(signer) {
+	if snap.signedRecently(signer) {
 		return errRecentlySigned
 	}
 
@@ -733,8 +730,6 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	if s, ok := p.recentSnaps.Get(hash); ok {
 		snap = s
 	} else {
-		p.snapLock.Lock()
-		defer p.snapLock.Unlock()
 		doLog = true
 	}
 
@@ -806,15 +801,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
 
-	verifiedAttestations := make(map[libcommon.Hash]struct{}, len(headers))
-	for index, header := range headers {
-		// vote attestation should be checked here to decide whether to update attestation of snapshot between [Luban,Plato)
-		// because err of verifyVoteAttestation is ignored when importing blocks and headers before Plato.
-		if p.chainConfig.IsLuban(header.Number.Uint64()) && !p.chainConfig.IsPlato(header.Number.Uint64()) && p.verifyVoteAttestation(chain, header, headers[:index]) == nil {
-			verifiedAttestations[header.Hash()] = struct{}{}
-		}
-	}
-	snap, err := snap.apply(headers, chain, parents, p.chainConfig, verifiedAttestations, doLog)
+	snap, err := snap.apply(headers, chain, parents, p.chainConfig, doLog)
 	if err != nil {
 		return nil, err
 	}
@@ -982,6 +969,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	// If the block is an epoch end block, verify the validator list
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
+
 	if err := p.verifyValidators(header, parentHeader, state); err != nil {
 		return nil, nil, err
 	}
@@ -996,8 +984,10 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
 		spoiledVal := snap.supposeValidator()
 		signedRecently := false
-		if p.chainConfig.IsPlato(number) {
-			signedRecently = snap.SignRecently(spoiledVal)
+		if p.chainConfig.IsPlato(header.Number.Uint64()) {
+			if snap.signedRecently(spoiledVal) {
+				signedRecently = true
+			}
 		} else {
 			for _, recent := range snap.Recents {
 				if recent == spoiledVal {
@@ -1006,7 +996,6 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 				}
 			}
 		}
-
 		if !signedRecently {
 			//log.Trace("slash validator", "block hash", header.Hash(), "address", spoiledVal)
 			var tx types.Transaction
@@ -1027,7 +1016,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	}
 
 	if p.chainConfig.IsPlato(header.Number.Uint64()) {
-		if _, _, _, err := p.distributeFinalityReward(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
+		if systemTxs, _, receipts, err = p.distributeFinalityReward(chain, state, header, txs, receipts, systemTxs, &header.GasUsed, false); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -1040,13 +1029,15 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	return txs, receipts, nil
 }
 
-func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header, txs types.Transactions, systemTxs types.Transactions,
-	usedGas *uint64, mining bool) (types.Transactions, types.Transaction, *types.Receipt, error) {
+func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header,
+	txs types.Transactions, receipts types.Receipts, systemTxs types.Transactions,
+	usedGas *uint64, mining bool) (types.Transactions,
+	types.Transaction, types.Receipts, error) {
 	currentHeight := header.Number.Uint64()
 	epoch := p.config.Epoch
 	chainConfig := chain.Config()
 	if currentHeight%epoch != 0 {
-		return nil, nil, nil, nil
+		return nil, nil, receipts, nil
 	}
 
 	head := header
@@ -1109,8 +1100,11 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 		log.Error("Unable to pack tx for distributeFinalityReward", "error", err)
 		return nil, nil, nil, err
 	}
-	return p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header,
+	// (types.Transactions, types.Transaction, *types.Receipt, error)
+	outTxs, tx, receipt, err := p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header,
 		len(txs), systemTxs, usedGas, mining)
+	receipts = append(receipts, receipt)
+	return outTxs, tx, receipts, err
 }
 
 // FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
@@ -1173,9 +1167,14 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	}
 
 	// If we're amongst the recent signers, wait for the next block
-	if snap.SignRecently(val) {
-		log.Info("Signed recently, must wait for others")
-		return nil
+	for seen, recent := range snap.Recents {
+		if recent == val {
+			// Signer is among recent, only wait if the current block doesn't shift it out
+			if limit := uint64(len(snap.Validators)/2 + 1); number < limit || seen > number-limit {
+				log.Info("[parlia] Signed recently, must wait for others")
+				return nil
+			}
+		}
 	}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
@@ -1359,7 +1358,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		log.Error("Unable to pack tx for getMiningValidators", "err", err)
 		return nil, nil, err
 	}
-	// call
+
 	msgData := hexutility.Bytes(data)
 	ibsWithoutCache := state.New(ibs.StateReader)
 	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibsWithoutCache, header, u256.Num0)
@@ -1617,7 +1616,7 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 	}
 	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
-		log.Error("Unexpected error when getting snapshot",
+		log.Error("GetJustifiedNumberAndHash snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())
 		return 0, libcommon.Hash{}, err
 	}
@@ -1632,39 +1631,23 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 }
 
 // GetFinalizedHeader returns highest finalized block header.
-// It will find vote finalized block within NaturallyFinalizedDist blocks firstly,
-// If the vote finalized block not found, return its naturally finalized block.
 func (p *Parlia) GetFinalizedHeader(chain consensus.ChainHeaderReader, header *types.Header) *types.Header {
-	backward := uint64(types.NaturallyFinalizedDist)
 	if chain == nil || header == nil {
 		return nil
 	}
 	if !chain.Config().IsPlato(header.Number.Uint64()) {
 		return chain.GetHeaderByNumber(0)
 	}
-	if header.Number.Uint64() < backward {
-		backward = header.Number.Uint64()
-	}
 
 	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
-		log.Error("Unexpected error when getting snapshot",
+		log.Error("GetFinalizedHeader snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())
 		return nil
 	}
 
-	for snap.Attestation != nil && snap.Attestation.SourceNumber >= header.Number.Uint64()-backward {
-		if snap.Attestation.TargetNumber == snap.Attestation.SourceNumber+1 {
-			return chain.GetHeaderByHash(snap.Attestation.SourceHash)
-		}
-
-		snap, err = p.snapshot(chain, snap.Attestation.SourceNumber, snap.Attestation.SourceHash, nil, true)
-		if err != nil {
-			log.Error("Unexpected error when getting snapshot",
-				"error", err, "blockNumber", snap.Attestation.SourceNumber, "blockHash", snap.Attestation.SourceHash)
-			return nil
-		}
+	if snap.Attestation != nil {
+		return chain.GetHeader(snap.Attestation.SourceHash, snap.Attestation.SourceNumber)
 	}
-
-	return FindAncientHeader(header, backward, chain, nil)
+	return nil
 }

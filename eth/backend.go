@@ -239,7 +239,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 
 	// Apply special hacks for BSC params
 	if chainConfig.Parlia != nil {
-		params.ApplyBinanceSmartChainParams()
+		params.ApplyBNBSmartChainParams()
 	}
 
 	if err := chainKv.Update(context.Background(), func(tx kv.RwTx) error {
@@ -362,6 +362,12 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			var picked bool
 			for ; pi < len(refCfg.AllowedPorts) && !picked; pi++ {
 				pc := int(refCfg.AllowedPorts[pi])
+				if pc == 0 {
+					// For ephemeral ports probing to see if the port is taken does not
+					// make sense.
+					picked = true
+					break
+				}
 				if !checkPortIsFree(fmt.Sprintf("%s:%d", listenHost, pc)) {
 					log.Warn("bind protocol to port has failed: port is busy", "protocols", fmt.Sprintf("eth/%d", refCfg.ProtocolVersion), "port", pc)
 					continue
@@ -1043,7 +1049,8 @@ func (s *Ethereum) Start() error {
 	s.sentriesClient.StartStreamLoops(s.sentryCtx)
 	time.Sleep(10 * time.Millisecond) // just to reduce logs order confusion
 
-	go stages2.StageLoop(s.sentryCtx, s.chainConfig, s.chainDB, s.stagedSync, s.sentriesClient.Hd, s.notifications, s.sentriesClient.UpdateHead, s.waitForStageLoopStop, s.config.Sync.LoopThrottle)
+	hook := stages2.NewHook(s.sentryCtx, s.notifications, s.stagedSync, s.chainConfig, s.sentriesClient.UpdateHead)
+	go stages2.StageLoop(s.sentryCtx, s.chainDB, s.stagedSync, s.sentriesClient.Hd, s.waitForStageLoopStop, s.config.Sync.LoopThrottle, nil, hook)
 
 	return nil
 }

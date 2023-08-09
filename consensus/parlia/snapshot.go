@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"sort"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
@@ -194,33 +194,36 @@ func (s *Snapshot) isMajorityFork(forkHash string) bool {
 }
 
 func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) {
+	if !chainConfig.IsLuban(header.Number.Uint64()) {
+		return
+	}
+
 	// The attestation should have been checked in verify header, update directly
 	attestation, _ := getVoteAttestationFromHeader(header, chainConfig, parliaConfig)
 	if attestation == nil {
 		return
 	}
 
+	// Headers with bad attestation are accepted before Plato upgrade,
+	// but Attestation of snapshot is only updated when the target block is direct parent of the header
+	targetNumber := attestation.Data.TargetNumber
+	targetHash := attestation.Data.TargetHash
+	if targetHash != header.ParentHash || targetNumber+1 != header.Number.Uint64() {
+		log.Warn("updateAttestation failed", "error", fmt.Errorf("invalid attestation, target mismatch, expected block: %d, hash: %s; real block: %d, hash: %s",
+			header.Number.Uint64()-1, header.ParentHash, targetNumber, targetHash))
+		return
+	}
+
 	// Update attestation
-	s.Attestation = &types.VoteData{
-		SourceNumber: attestation.Data.SourceNumber,
-		SourceHash:   attestation.Data.SourceHash,
-		TargetNumber: attestation.Data.TargetNumber,
-		TargetHash:   attestation.Data.TargetHash,
+	if s.Attestation != nil && attestation.Data.SourceNumber+1 != attestation.Data.TargetNumber {
+		s.Attestation.TargetNumber = attestation.Data.TargetNumber
+		s.Attestation.TargetHash = attestation.Data.TargetHash
+	} else {
+		s.Attestation = attestation.Data
 	}
 }
 
-func (s *Snapshot) SignRecently(validator common.Address) bool {
-	for seen, recent := range s.Recents {
-		if recent == validator {
-			if limit := uint64(len(s.Validators)/2 + 1); s.Number+1 < limit || seen > s.Number+1-limit {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, verifiedAttestations map[libcommon.Hash]struct{}, doLog bool) (*Snapshot, error) {
+func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, doLog bool) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return s, nil
@@ -319,10 +322,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 			}
 		}
 
-		_, voteAssestationNoErr := verifiedAttestations[header.Hash()]
-		if chainConfig.IsPlato(header.Number.Uint64()) || (chainConfig.IsLuban(header.Number.Uint64()) && voteAssestationNoErr) {
-			snap.updateAttestation(header, chainConfig, s.config)
-		}
+		snap.updateAttestation(header, chainConfig, s.config)
 
 		snap.RecentForkHashes[number] = hex.EncodeToString(header.Extra[extraVanity-nextForkHashSize : extraVanity])
 	}
@@ -386,6 +386,17 @@ func (s *Snapshot) supposeValidator() common.Address {
 	validators := s.validators()
 	index := (s.Number + 1) % uint64(len(validators))
 	return validators[index]
+}
+
+func (s *Snapshot) signedRecently(validator common.Address) bool {
+	for seen, recent := range s.Recents {
+		if recent == validator {
+			if limit := uint64(len(s.Validators)/2 + 1); s.Number+1 < limit || seen > s.Number+1-limit {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseValidators(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) ([]libcommon.Address, []types.BLSPublicKey, error) {

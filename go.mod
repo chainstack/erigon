@@ -3,7 +3,6 @@ module github.com/ledgerwatch/erigon
 go 1.19
 
 require (
-	github.com/ledgerwatch/erigon-lib v0.0.0-20230330024812-ae99e29d013b
 	github.com/ledgerwatch/erigon-snapshot v1.1.1-0.20230306083105-1391330d62a3
 	github.com/ledgerwatch/log/v3 v3.7.0
 	github.com/ledgerwatch/secp256k1 v1.0.0
@@ -27,7 +26,7 @@ require (
 	github.com/cometbft/cometbft v0.37.1
 	github.com/consensys/gnark-crypto v0.10.0
 	github.com/crate-crypto/go-ipa v0.0.0-20221111143132-9aa5d42120bc
-	github.com/crate-crypto/go-kzg-4844 v0.0.0-20230405223534-4364e2f9d209
+	github.com/crate-crypto/go-kzg-4844 v0.3.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.8.0
 	github.com/deckarep/golang-set/v2 v2.3.0
@@ -48,7 +47,8 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
-	github.com/hashicorp/golang-lru/v2 v2.0.2
+	github.com/hashicorp/golang-lru/arc/v2 v2.0.5
+	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/holiman/uint256 v1.2.2
 	github.com/huandu/xstrings v1.4.0
 	github.com/huin/goupnp v1.1.0
@@ -56,6 +56,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kevinburke/go-bindata v3.21.0+incompatible
+	github.com/ledgerwatch/erigon-lib v0.0.0-00010101000000-000000000000
 	github.com/libp2p/go-libp2p v0.26.2
 	github.com/libp2p/go-libp2p-pubsub v0.9.3
 	github.com/maticnetwork/crand v1.0.2
@@ -297,7 +298,8 @@ require (
 
 replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2
-	github.com/ledgerwatch/erigon-lib => github.com/chainstack/erigon-lib v0.0.0-20230628134336-39ccc77d2011
+	github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/prysmaticlabs/grpc-gateway/v2 v2.3.1-0.20210702154020-550e1cd83ec1
+	github.com/ledgerwatch/erigon-lib => github.com/chainstack/erigon-lib v0.0.0-20230809155901-1f5c66de7d36
 	github.com/ledgerwatch/erigon-snapshot => github.com/chainstack/erigon-snapshot v1.2.2
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.15
 )
